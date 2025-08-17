@@ -27,7 +27,7 @@ export class UsersService {
   }): Promise<ServiceOutput> {
     try {
       const saltRounds = this.configService.get<number>('PASSWORD_SALT', 10);
-      const hashedPassword = await bcrypt.hash(password, saltRounds);
+      const hashedPassword = await bcrypt.hash(password, Number(saltRounds));
 
       const user = new User();
       user.userID = userID;
