@@ -161,4 +161,39 @@ describe('UsersService', () => {
       });
     });
   });
+
+  describe('findUserByUserID', () => {
+    const testUserID = 'testuser123';
+
+    describe('성공 케이스', () => {
+      it('존재하는 userID로 유저를 찾아야 함', async () => {
+        const mockUser = {
+          id: 1,
+          userID: testUserID,
+          password: 'hashedPassword',
+          registeredDate: new Date(),
+        } as User;
+
+        const findOneBySpy = jest
+          .spyOn(userRepository, 'findOneBy')
+          .mockResolvedValue(mockUser);
+
+        const result = await service.findUserByUserID(testUserID);
+
+        expect(findOneBySpy).toHaveBeenCalledWith({ userID: testUserID });
+        expect(result).toEqual(mockUser);
+      });
+
+      it('존재하지 않는 userID로 null을 반환해야 함', async () => {
+        const findOneBySpy = jest
+          .spyOn(userRepository, 'findOneBy')
+          .mockResolvedValue(null);
+
+        const result = await service.findUserByUserID(testUserID);
+
+        expect(findOneBySpy).toHaveBeenCalledWith({ userID: testUserID });
+        expect(result).toBeNull();
+      });
+    });
+  });
 });
