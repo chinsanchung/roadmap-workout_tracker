@@ -22,7 +22,7 @@ export class UsersController {
     const { success, message } =
       await this.usersService.createUser(createUserDto);
 
-    if (success) return '계정 생성에 성공했습니다.';
-    else throw new HttpException(message, HttpStatus.BAD_REQUEST);
+    if (!success) throw new HttpException(message, HttpStatus.BAD_REQUEST);
+    return '계정 생성에 성공했습니다.';
   }
 }
