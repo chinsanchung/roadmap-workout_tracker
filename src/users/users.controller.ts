@@ -19,16 +19,6 @@ export class UsersController {
   async create(
     @Body() createUserDto: createUserDto.CreateUserDto,
   ): Promise<string> {
-    const existUser = await this.usersService.findUserByUserID(
-      createUserDto.userID,
-    );
-    if (existUser) {
-      throw new HttpException(
-        '같은 아이디를 사용하고 있는 계정이 있습니다.',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
     const { success, message } =
       await this.usersService.createUser(createUserDto);
 

@@ -15,10 +15,6 @@ export class UsersService {
   ) {}
   private readonly logger = new Logger('UsersService', { timestamp: true });
 
-  async findUserByUserID(userID: string) {
-    return await this.usersRepository.findOneBy({ userID });
-  }
-
   async createUser({
     userID,
     password,
@@ -36,11 +32,20 @@ export class UsersService {
 
       await this.usersRepository.save(user);
       return { success: true, message: '' };
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error(error);
+
+      let errorMessage = '계정 생성 과정에서 오류가 발생했습니다.';
+      if (
+        error instanceof Error &&
+        (('code' in error && error.code === 'SQLITE_CONSTRAINT_UNIQUE') ||
+          error.message.includes('UNIQUE constraint failed'))
+      ) {
+        errorMessage = '같은 아이디를 사용하고 있는 계정이 있습니다.';
+      }
       return {
         success: false,
-        message: '계정 생성 과정에서 오류가 발생했습니다.',
+        message: errorMessage,
       };
     }
   }
