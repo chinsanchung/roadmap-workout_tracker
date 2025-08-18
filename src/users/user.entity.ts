@@ -11,10 +11,10 @@ export class User {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @PrimaryColumn()
+  @PrimaryColumn({ length: 15 })
   userID: string;
 
-  @Column()
+  @Column({ length: 20 })
   password: string;
 
   @CreateDateColumn({ type: 'datetime' })
