@@ -3,3 +3,7 @@ export interface ServiceOutput {
   message: string;
   error?: Error;
 }
+
+export interface DatabaseError extends Error {
+  code?: string;
+}

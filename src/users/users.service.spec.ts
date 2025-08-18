@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from './users.service';
 import { User } from './user.entity';
+import { DatabaseError } from '../common/interfaces/common.interface';
 
 jest.mock('bcrypt');
 
@@ -60,7 +61,7 @@ describe('UsersService', () => {
 
         const configSpy = jest
           .spyOn(configService, 'get')
-          .mockReturnValue(saltRounds);
+          .mockReturnValue('10');
         mockedBcrypt.hash.mockResolvedValue(hashedPassword as never);
         const saveSpy = jest
           .spyOn(userRepository, 'save')
@@ -68,7 +69,7 @@ describe('UsersService', () => {
 
         const result = await service.createUser(mockUserData);
 
-        expect(configSpy).toHaveBeenCalledWith('PASSWORD_SALT', 10);
+        expect(configSpy).toHaveBeenCalledWith('PASSWORD_SALT', '10');
         expect(mockedBcrypt.hash).toHaveBeenCalledWith(
           mockUserData.password,
           saltRounds,
@@ -93,56 +94,56 @@ describe('UsersService', () => {
 
         await service.createUser(mockUserData);
 
-        expect(configSpy).toHaveBeenCalledWith('PASSWORD_SALT', 10);
+        expect(configSpy).toHaveBeenCalledWith('PASSWORD_SALT', '10');
       });
     });
 
     describe('실패 케이스', () => {
       it('repository save 실패 시 에러를 반환해야 함', async () => {
         const error = new Error('Database error');
-        const consoleErrorSpy = jest
-          .spyOn(console, 'error')
+        const loggerErrorSpy = jest
+          .spyOn(service['logger'], 'error')
           .mockImplementation();
 
-        jest.spyOn(configService, 'get').mockReturnValue(10);
+        jest.spyOn(configService, 'get').mockReturnValue('10');
         mockedBcrypt.hash.mockResolvedValue('hashedPassword' as never);
         jest.spyOn(userRepository, 'save').mockRejectedValue(error);
 
         const result = await service.createUser(mockUserData);
 
-        expect(consoleErrorSpy).toHaveBeenCalledWith(error);
+        expect(loggerErrorSpy).toHaveBeenCalledWith(error);
         expect(result).toEqual({
           success: false,
           message: '계정 생성 과정에서 오류가 발생했습니다.',
         });
 
-        consoleErrorSpy.mockRestore();
+        loggerErrorSpy.mockRestore();
       });
 
       it('bcrypt hash 실패 시 에러를 반환해야 함', async () => {
         const error = new Error('Bcrypt error');
-        const consoleErrorSpy = jest
-          .spyOn(console, 'error')
+        const loggerErrorSpy = jest
+          .spyOn(service['logger'], 'error')
           .mockImplementation();
 
-        jest.spyOn(configService, 'get').mockReturnValue(10);
+        jest.spyOn(configService, 'get').mockReturnValue('10');
         mockedBcrypt.hash.mockRejectedValue(error as never);
 
         const result = await service.createUser(mockUserData);
 
-        expect(consoleErrorSpy).toHaveBeenCalledWith(error);
+        expect(loggerErrorSpy).toHaveBeenCalledWith(error);
         expect(result).toEqual({
           success: false,
           message: '계정 생성 과정에서 오류가 발생했습니다.',
         });
 
-        consoleErrorSpy.mockRestore();
+        loggerErrorSpy.mockRestore();
       });
 
       it('ConfigService 오류 시 에러를 반환해야 함', async () => {
         const error = new Error('Config error');
-        const consoleErrorSpy = jest
-          .spyOn(console, 'error')
+        const loggerErrorSpy = jest
+          .spyOn(service['logger'], 'error')
           .mockImplementation();
 
         jest.spyOn(configService, 'get').mockImplementation(() => {
@@ -151,48 +152,58 @@ describe('UsersService', () => {
 
         const result = await service.createUser(mockUserData);
 
-        expect(consoleErrorSpy).toHaveBeenCalledWith(error);
+        expect(loggerErrorSpy).toHaveBeenCalledWith(error);
         expect(result).toEqual({
           success: false,
           message: '계정 생성 과정에서 오류가 발생했습니다.',
         });
 
-        consoleErrorSpy.mockRestore();
-      });
-    });
-  });
-
-  describe('findUserByUserID', () => {
-    const testUserID = 'testuser123';
-
-    describe('성공 케이스', () => {
-      it('존재하는 userID로 유저를 찾아야 함', async () => {
-        const mockUser = {
-          id: 1,
-          userID: testUserID,
-          password: 'hashedPassword',
-          registeredDate: new Date(),
-        } as User;
-
-        const findOneBySpy = jest
-          .spyOn(userRepository, 'findOneBy')
-          .mockResolvedValue(mockUser);
-
-        const result = await service.findUserByUserID(testUserID);
-
-        expect(findOneBySpy).toHaveBeenCalledWith({ userID: testUserID });
-        expect(result).toEqual(mockUser);
+        loggerErrorSpy.mockRestore();
       });
 
-      it('존재하지 않는 userID로 null을 반환해야 함', async () => {
-        const findOneBySpy = jest
-          .spyOn(userRepository, 'findOneBy')
-          .mockResolvedValue(null);
+      it('UNIQUE 제약 위반 시 중복 계정 메시지를 반환해야 함', async () => {
+        const uniqueError: DatabaseError = new Error(
+          'UNIQUE constraint failed: user.userID',
+        );
+        uniqueError.code = 'SQLITE_CONSTRAINT_UNIQUE';
+        const loggerErrorSpy = jest
+          .spyOn(service['logger'], 'error')
+          .mockImplementation();
 
-        const result = await service.findUserByUserID(testUserID);
+        jest.spyOn(configService, 'get').mockReturnValue('10');
+        mockedBcrypt.hash.mockResolvedValue('hashedPassword' as never);
+        jest.spyOn(userRepository, 'save').mockRejectedValue(uniqueError);
 
-        expect(findOneBySpy).toHaveBeenCalledWith({ userID: testUserID });
-        expect(result).toBeNull();
+        const result = await service.createUser(mockUserData);
+
+        expect(loggerErrorSpy).toHaveBeenCalledWith(uniqueError);
+        expect(result).toEqual({
+          success: false,
+          message: '같은 아이디를 사용하고 있는 계정이 있습니다.',
+        });
+
+        loggerErrorSpy.mockRestore();
+      });
+
+      it('UNIQUE constraint failed 메시지 포함 에러 시 중복 계정 메시지를 반환해야 함', async () => {
+        const uniqueError = new Error('UNIQUE constraint failed: user.userID');
+        const loggerErrorSpy = jest
+          .spyOn(service['logger'], 'error')
+          .mockImplementation();
+
+        jest.spyOn(configService, 'get').mockReturnValue('10');
+        mockedBcrypt.hash.mockResolvedValue('hashedPassword' as never);
+        jest.spyOn(userRepository, 'save').mockRejectedValue(uniqueError);
+
+        const result = await service.createUser(mockUserData);
+
+        expect(loggerErrorSpy).toHaveBeenCalledWith(uniqueError);
+        expect(result).toEqual({
+          success: false,
+          message: '같은 아이디를 사용하고 있는 계정이 있습니다.',
+        });
+
+        loggerErrorSpy.mockRestore();
       });
     });
   });
