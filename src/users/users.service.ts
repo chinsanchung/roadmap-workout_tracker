@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -13,6 +13,7 @@ export class UsersService {
     private usersRepository: Repository<User>,
     private configService: ConfigService,
   ) {}
+  private readonly logger = new Logger('UsersService', { timestamp: true });
 
   async findUserByUserID(userID: string) {
     return await this.usersRepository.findOneBy({ userID });
@@ -36,8 +37,7 @@ export class UsersService {
       await this.usersRepository.save(user);
       return { success: true, message: '' };
     } catch (error) {
-      // TODO: 에러 로그 처리
-      console.error(error);
+      this.logger.error(error);
       return {
         success: false,
         message: '계정 생성 과정에서 오류가 발생했습니다.',
